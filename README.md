@@ -10,6 +10,43 @@ An AI-powered video processing tool that extracts audio from videos, transcribes
 - **RAG-based Q&A**: Ask questions about video content and get context-aware answers
 - **Vector Storage**: Efficient storage and retrieval of processed content using ChromaDB
 
+## How It Works
+
+The AI Video Assistant processes videos through a multi-stage pipeline:
+
+1. **Video/Audio Acquisition**:
+   - Downloads audio from YouTube URLs using `yt-dlp`
+   - Processes and converts audio files using `pydub` and `ffmpeg-python`
+   - Chunks long audio files into manageable segments for efficient processing
+
+2. **Speech-to-Text Transcription**:
+   - Uses OpenAI's Whisper model (locally hosted) for accurate speech recognition
+   - Supports multiple languages and optional translation to English
+   - Default model: `small` (configurable via `WHISPER_MODEL` environment variable)
+
+3. **Content Analysis**:
+   - **Summarization**: Leverages Mistral AI's language models via LangChain for generating concise summaries
+   - **Extraction**: Identifies actionable items, key decisions, and questions from transcripts using Mistral
+   - Text is split into chunks using LangChain's `RecursiveCharacterTextSplitter` for optimal processing
+
+4. **Retrieval-Augmented Generation (RAG)**:
+   - Embeds transcript chunks using `sentence-transformers` (HuggingFace models)
+   - Stores embeddings in ChromaDB for efficient vector search
+   - Retrieves relevant context for user queries
+   - Generates answers using Mistral AI models with retrieved context
+
+5. **User Interface**:
+   - Built with Streamlit for an interactive web-based experience
+   - Supports PDF export of summaries and transcripts using `reportlab` or `fpdf2`
+
+**Key Technologies and Models**:
+- **Whisper**: OpenAI's speech recognition model for transcription
+- **Mistral AI**: Large language model for summarization, extraction, and Q&A (via `mistral-small-latest`)
+- **Sentence Transformers**: For generating text embeddings (e.g., `all-MiniLM-L6-v2`)
+- **ChromaDB**: Vector database for storing and retrieving embeddings
+- **LangChain**: Orchestrates LLM interactions and RAG pipeline
+- **PyTorch**: Backend for Whisper and audio processing
+
 ## Installation
 
 1. Clone the repository:
