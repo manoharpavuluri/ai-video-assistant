@@ -31,8 +31,13 @@ def extract_key_decisions(transcript: str) -> str:
 
 
 def extract_questions(transcript: str) -> str:
-    system_prompt = "You are a helpful assistant that extracts questions from video transcripts. "
-    system_prompt += "Identify any questions or uncertainties mentioned in the transcript and list them as questions."
+    system_prompt = (
+        "You are a helpful assistant that extracts questions and uncertainties from video transcripts. "
+        "For each question, include a concise answer or resolution when the transcript provides one. "
+        "If the transcript does not provide an answer, write 'Answer: Not answered in the transcript.' "
+        "Return a numbered list where each item has 'Question:' and 'Answer:' lines. "
+        "Do not list question-only items unless they are explicitly unanswered."
+    )
     chain = build_chain(system_prompt)
-    return chain.invoke(transcript)     
+    return chain.invoke(transcript)
 
