@@ -614,12 +614,12 @@ with st.sidebar:
     if source_mode == "Upload file":
         uploaded_file = st.file_uploader("Video or audio file", type=SUPPORTED_UPLOADS)
     elif source_mode == "YouTube URL":
-        source_value = st.text_input("YouTube URL", placeholder="https://www.youtube.com/watch?v=...")
+        source_value = st.text_input("YouTube URL", placeholder="")
     else:
         source_value = st.text_input("Local file path", placeholder="/Users/you/Downloads/meeting.mp4")
 
-    translate = st.checkbox("Translate speech to English", value=False)
-    include_notes = st.checkbox("Generate summary and notes", value=False, help="This makes extra LLM calls after transcript chat is ready.")
+    translate = True
+    include_notes = True
     allow_local_fallback = st.checkbox("Allow local fallback if captions are missing", value=False)
 
     st.divider()
