@@ -4,7 +4,7 @@ from utils.audio_processor import process_input
 from utils.youtube_transcript import fetch_youtube_transcript
 from core.transcriber import transcribe_all
 from core.summarize import summarize, generate_title
-from core.extractor import extract_actionable_items, extract_key_decisions, extract_questions
+from core.extractor import extract_actionable_items, extract_key_decisions, extract_answered_questions
 from core.rag_engine import build_rag_chain, ask_question
 
 
@@ -81,8 +81,8 @@ def run_pipeline(
         _notify(progress_callback, "Extracting key decisions")
         decisions = extract_key_decisions(transcript)
 
-        _notify(progress_callback, "Extracting open questions")
-        questions = extract_questions(transcript)
+        _notify(progress_callback, "Extracting and answering open questions")
+        questions = extract_answered_questions(transcript)
 
     _notify(progress_callback, "Analysis complete")
 
