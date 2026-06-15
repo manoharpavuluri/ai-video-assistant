@@ -8,13 +8,17 @@ import os
 import re
 import tempfile
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 import streamlit as st
 import streamlit.components.v1 as components
 from PIL import Image
 from dotenv import load_dotenv
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
 from core.rag_engine import ask_question
@@ -90,26 +94,173 @@ def build_txt_export(result: dict) -> str:
     return "\n\n".join(f"{heading}\n{'=' * len(heading)}\n{body}" for heading, body in sections)
 
 
+def build_pdf_styles() -> dict:
+    base_styles = getSampleStyleSheet()
+    return {
+        "title": ParagraphStyle(
+            "DocumentTitle",
+            parent=base_styles["Title"],
+            alignment=TA_CENTER,
+            fontName="Helvetica-Bold",
+            fontSize=22,
+            leading=28,
+            textColor=colors.HexColor("#2f3140"),
+            spaceAfter=18,
+        ),
+        "section": ParagraphStyle(
+            "SectionHeading",
+            parent=base_styles["Heading1"],
+            fontName="Helvetica-Bold",
+            fontSize=16,
+            leading=20,
+            textColor=colors.HexColor("#2f3140"),
+            spaceBefore=14,
+            spaceAfter=8,
+        ),
+        "heading": ParagraphStyle(
+            "MarkdownHeading",
+            parent=base_styles["Heading2"],
+            fontName="Helvetica-Bold",
+            fontSize=14,
+            leading=18,
+            textColor=colors.HexColor("#2f3140"),
+            spaceBefore=10,
+            spaceAfter=6,
+        ),
+        "subheading": ParagraphStyle(
+            "MarkdownSubheading",
+            parent=base_styles["Heading3"],
+            fontName="Helvetica-Bold",
+            fontSize=12,
+            leading=15,
+            textColor=colors.HexColor("#2f3140"),
+            spaceBefore=8,
+            spaceAfter=4,
+        ),
+        "body": ParagraphStyle(
+            "ExportBody",
+            parent=base_styles["BodyText"],
+            fontName="Helvetica",
+            fontSize=10.5,
+            leading=15,
+            textColor=colors.HexColor("#31333f"),
+            spaceAfter=5,
+        ),
+        "bullet": ParagraphStyle(
+            "ExportBullet",
+            parent=base_styles["BodyText"],
+            fontName="Helvetica",
+            fontSize=10.5,
+            leading=15,
+            leftIndent=18,
+            firstLineIndent=0,
+            bulletIndent=6,
+            textColor=colors.HexColor("#31333f"),
+            spaceAfter=4,
+        ),
+    }
+
+
+def markdown_to_pdf_markup(text: str) -> str:
+    markup = escape(str(text or "").strip())
+    markup = re.sub(r"`([^`]*)`", r"<font name='Courier'>\1</font>", markup)
+    markup = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", markup)
+    markup = re.sub(r"__([^_]+)__", r"<b>\1</b>", markup)
+    markup = re.sub(r"\*([^*]+)\*", r"<i>\1</i>", markup)
+    markup = re.sub(r"_([^_]+)_", r"<i>\1</i>", markup)
+    markup = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", markup)
+    markup = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", markup)
+    return markup or " "
+
+
+def append_markdown_pdf(story: list, body: str, styles: dict) -> None:
+    previous_blank = False
+    for raw_line in str(body or "").splitlines():
+        if not raw_line.strip():
+            if not previous_blank:
+                story.append(Spacer(1, 5))
+            previous_blank = True
+            continue
+
+        previous_blank = False
+        stripped = raw_line.strip()
+        heading_match = re.match(r"^(#{1,6})\s+(.+)$", stripped)
+        bullet_match = re.match(r"^(\s*)([-*+]|[•◦])\s+(.+)$", raw_line)
+        number_match = re.match(r"^(\s*)(\d+)[.)]\s+(.+)$", raw_line)
+
+        if heading_match:
+            level = len(heading_match.group(1))
+            style = styles["heading"] if level <= 2 else styles["subheading"]
+            story.append(Paragraph(markdown_to_pdf_markup(heading_match.group(2)), style))
+        elif bullet_match:
+            indent = len(bullet_match.group(1).replace("\t", "    "))
+            level = max(0, min(3, indent // 2))
+            bullet_style = ParagraphStyle(
+                f"ExportBullet{level}",
+                parent=styles["bullet"],
+                leftIndent=18 + (level * 18),
+                bulletIndent=6 + (level * 18),
+            )
+            bullet = "•" if level == 0 else "-"
+            story.append(Paragraph(markdown_to_pdf_markup(bullet_match.group(3)), bullet_style, bulletText=bullet))
+        elif number_match:
+            indent = len(number_match.group(1).replace("\t", "    "))
+            level = max(0, min(3, indent // 2))
+            number_style = ParagraphStyle(
+                f"ExportNumber{level}",
+                parent=styles["bullet"],
+                leftIndent=20 + (level * 18),
+                bulletIndent=3 + (level * 18),
+            )
+            story.append(
+                Paragraph(
+                    markdown_to_pdf_markup(number_match.group(3)),
+                    number_style,
+                    bulletText=f"{number_match.group(2)}.",
+                )
+            )
+        else:
+            story.append(Paragraph(markdown_to_pdf_markup(stripped), styles["body"]))
+
+
+def draw_pdf_footer(canvas, document) -> None:
+    canvas.saveState()
+    canvas.setFont("Helvetica", 8)
+    canvas.setFillColor(colors.HexColor("#8a8f98"))
+    canvas.drawString(0.75 * inch, 0.45 * inch, "AI Video Assistant")
+    canvas.drawRightString(7.75 * inch, 0.45 * inch, f"Page {document.page}")
+    canvas.restoreState()
+
+
 def build_pdf_export(result: dict) -> bytes:
     buffer = io.BytesIO()
-    document = SimpleDocTemplate(buffer, pagesize=letter, title=result.get("title") or "AI Video Assistant")
-    styles = getSampleStyleSheet()
-    story = []
+    title = result.get("title") or "AI Video Assistant"
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        title=title,
+        rightMargin=0.72 * inch,
+        leftMargin=0.72 * inch,
+        topMargin=0.68 * inch,
+        bottomMargin=0.68 * inch,
+    )
+    styles = build_pdf_styles()
+    story = [Paragraph(markdown_to_pdf_markup(title), styles["title"])]
 
     for heading, body in [
-        ("Title", result.get("title", "")),
         ("Summary", result.get("summary", "")),
         ("Action Items", result.get("action_items", "")),
         ("Key Decisions", result.get("key_decisions", "")),
         ("Open Questions", result.get("open_questions", "")),
         ("Transcript", result.get("transcript", "")),
     ]:
-        story.append(Paragraph(heading, styles["Heading2"]))
-        for paragraph in str(body).split("\n"):
-            story.append(Paragraph(paragraph or " ", styles["BodyText"]))
-        story.append(Spacer(1, 12))
+        if not str(body or "").strip():
+            continue
+        story.append(Paragraph(heading, styles["section"]))
+        append_markdown_pdf(story, body, styles)
+        story.append(Spacer(1, 10))
 
-    document.build(story)
+    document.build(story, onFirstPage=draw_pdf_footer, onLaterPages=draw_pdf_footer)
     return buffer.getvalue()
 
 
