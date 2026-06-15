@@ -453,7 +453,7 @@ def render_kokoro_readback(label: str, text: str, section_id: str) -> None:
 
     with st.container(border=True):
         st.markdown(f"**Read back {label}**")
-        controls = st.columns([1.2, 2.4, 1.2])
+        controls = st.columns([1.2, 2.1, 1.2, 1.2])
         generate_label = "Regenerate audio" if st.session_state.get(audio_key) else "Generate audio"
         if controls[0].button(generate_label, key=f"generate_{section_id}_audio"):
             try:
@@ -472,7 +472,18 @@ def render_kokoro_readback(label: str, text: str, section_id: str) -> None:
                 st.error(f"Could not generate Kokoro audio: {exc}")
 
         controls[1].caption(f"Voice: {voice_label} | adjust speed in the audio player")
-        if controls[2].button("Clear audio", key=f"clear_{section_id}_audio"):
+        if st.session_state.get(audio_key) and st.session_state.get(signature_key) == signature:
+            controls[2].download_button(
+                "Download audio",
+                data=st.session_state[audio_key],
+                file_name=f"{section_id}-readback.wav",
+                mime="audio/wav",
+                key=f"download_{section_id}_audio",
+            )
+        else:
+            controls[2].button("Download audio", key=f"download_{section_id}_audio_disabled", disabled=True)
+
+        if controls[3].button("Clear audio", key=f"clear_{section_id}_audio"):
             st.session_state.pop(audio_key, None)
             st.session_state.pop(signature_key, None)
             st.rerun()
