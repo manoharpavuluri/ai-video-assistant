@@ -162,14 +162,24 @@ def build_pdf_styles() -> dict:
 
 
 def markdown_to_pdf_markup(text: str) -> str:
-    markup = escape(str(text or "").strip())
-    markup = re.sub(r"`([^`]*)`", r"<font name='Courier'>\1</font>", markup)
-    markup = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", markup)
-    markup = re.sub(r"__([^_]+)__", r"<b>\1</b>", markup)
-    markup = re.sub(r"\*([^*]+)\*", r"<i>\1</i>", markup)
-    markup = re.sub(r"_([^_]+)_", r"<i>\1</i>", markup)
+    raw_text = str(text or "").strip()
+    code_spans = []
+
+    def stash_code(match):
+        code_spans.append(escape(match.group(1)))
+        return f"@@CODE{len(code_spans) - 1}@@"
+
+    raw_text = re.sub(r"`([^`]*)`", stash_code, raw_text)
+    markup = escape(raw_text)
     markup = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", markup)
     markup = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", markup)
+    markup = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", markup)
+    markup = re.sub(r"__([^_]+)__", r"<b>\1</b>", markup)
+    markup = re.sub(r"(?<!\w)\*([^*]+)\*(?!\w)", r"<i>\1</i>", markup)
+    markup = re.sub(r"(?<!\w)_([^_]+)_(?!\w)", r"<i>\1</i>", markup)
+
+    for index, code in enumerate(code_spans):
+        markup = markup.replace(f"@@CODE{index}@@", f"<font name='Courier'>{code}</font>")
     return markup or " "
 
 
@@ -608,6 +618,7 @@ st.markdown(
     .block-container { padding-top: 1.4rem; padding-bottom: 2rem; }
     [data-testid="stMetricValue"] { font-size: 1.35rem; }
     .stDownloadButton button, .stButton button { border-radius: 6px; }
+    div[data-testid="InputInstructions"] { display: none; }
     </style>
     """,
     unsafe_allow_html=True,
