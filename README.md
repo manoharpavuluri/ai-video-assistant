@@ -67,17 +67,40 @@ The AI Video Assistant processes videos through a multi-stage pipeline:
 
 ## Usage
 
-1. Place your video files in the `downloads/` directory or modify the code to point to your video location.
+### Streamlit UI
 
-2. Run the main application:
+Run the interactive UI:
+
+```bash
+streamlit run streamlit_app.py --server.fileWatcherType none
+```
+
+The UI supports uploaded audio/video files, YouTube URLs, local file paths, transcript Q&A, and TXT/PDF exports.
+
+### CLI
+
+Place your video files in the `downloads/` directory or pass a local file path when prompted.
+
+Run the main application:
    ```bash
    python main.py
    ```
 
-3. For testing individual components:
+For testing individual components:
    ```bash
    python test.py
    ```
+
+### macOS App / DMG
+
+Build a local `.app` bundle and `.dmg` installer:
+
+```bash
+chmod +x packaging/build_macos_dmg.sh
+./packaging/build_macos_dmg.sh
+```
+
+The generated installer is written to `dist/AI Video Assistant.dmg`. The app launches the Streamlit UI using this project's `.venv`, so keep the project folder in place after installing the app.
 
 ## Project Structure
 

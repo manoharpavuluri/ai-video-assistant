@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="/Users/manohar/Documents/Learning/AI/AI-Video-Assistant"
+cd "$ROOT_DIR"
+
+export PATH="$ROOT_DIR/.venv/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+export STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+
+PORT="${AI_VIDEO_ASSISTANT_PORT:-8501}"
+URL="http://localhost:$PORT"
+
+"$ROOT_DIR/.venv/bin/python" -m streamlit run "$ROOT_DIR/streamlit_app.py" \
+  --server.port "$PORT" \
+  --server.headless true \
+  --server.fileWatcherType none \
+  --browser.gatherUsageStats false &
+
+streamlit_pid="$!"
+
+for _ in {1..60}; do
+  if curl -fsS "$URL" >/dev/null 2>&1; then
+    open "$URL" >/dev/null 2>&1 || true
+    break
+  fi
+  sleep 0.5
+done
+
+wait "$streamlit_pid"

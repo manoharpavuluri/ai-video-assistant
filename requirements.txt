@@ -7,7 +7,8 @@ pydub>=0.25.1                     # Audio file manipulation / format conversion
 ffmpeg-python>=0.2.0              # FFmpeg bindings (FFmpeg binary must be installed separately)
 
 # ── Speech-to-Text (local Whisper) ────────────────────────────────────────────
-openai-whisper>=20231117          # OpenAI Whisper (runs locally)
+openai-whisper>=20231117          # Legacy Whisper fallback
+faster-whisper>=1.1.0              # Faster local Whisper via CTranslate2
 torch>=2.2.0                      # PyTorch backend for Whisper
 torchaudio>=2.2.0                 # Audio utilities for PyTorch
 
@@ -29,6 +30,10 @@ huggingface-hub>=0.23.0           # Model downloading from HuggingFace Hub
 tiktoken>=0.7.0                   # Token counting for text splitting
 langchain-chroma>=0.1.2           # LangChain wrapper for Chroma vector store
 langchain-text-splitters
+
+# ── Text-to-Speech read back ─────────────────────────────────────────────────
+kokoro>=0.9.4                     # Local neural TTS for natural read-back voices
+soundfile>=0.12.1                 # WAV encoding for generated Kokoro audio
 
 # ── Streamlit UI ──────────────────────────────────────────────────────────────
 streamlit>=1.35.0

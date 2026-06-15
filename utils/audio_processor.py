@@ -1,6 +1,8 @@
 import yt_dlp
 from pydub import AudioSegment
 import os
+from pathlib import Path
+
 download_dir = "downloads"
 chunk_dir = "chunks"
 
@@ -21,16 +23,32 @@ def download_youtube_audio(url: str) -> str:
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info_dict = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info_dict).replace(".webm", ".wav").replace(".m4a", ".wav")
-        
+        filename = _resolve_downloaded_audio_path(ydl, info_dict)
 
     return filename
 
+
+def _resolve_downloaded_audio_path(ydl: yt_dlp.YoutubeDL, info_dict: dict) -> str:
+    requested_downloads = info_dict.get("requested_downloads") or []
+    for download in requested_downloads:
+        filepath = download.get("filepath")
+        if filepath and os.path.exists(filepath):
+            return filepath
+
+    prepared_path = Path(ydl.prepare_filename(info_dict))
+    wav_path = prepared_path.with_suffix(".wav")
+    if wav_path.exists():
+        return str(wav_path)
+    if prepared_path.exists():
+        return str(prepared_path)
+
+    raise FileNotFoundError(f"Could not find downloaded audio for: {info_dict.get('title', 'video')}")
+
+
 def convert_to_wav(mp3_path: str) -> str:
-    """Convert the downloaded MP3 file to WAV format."""
-    wav_path = mp3_path.replace(".mp3", ".wav")
+    """Convert an audio/video file to a mono 16kHz WAV file."""
     wav_path = os.path.splitext(mp3_path)[0] + "_con.wav"
-    audio = AudioSegment.from_mp3(mp3_path)
+    audio = AudioSegment.from_file(mp3_path)
     audio = audio.set_channels(1).set_frame_rate(16000)
     audio.export(wav_path, format="wav")
     return wav_path
@@ -52,16 +70,11 @@ def process_input(source: str) -> list:
     if source.startswith("http"):
         audio_path = download_youtube_audio(source)
     else:
+        if not os.path.exists(source):
+            raise FileNotFoundError(f"Input file not found: {source}")
         audio_path = convert_to_wav(source)
     
     print(f"Audio file ready at: {audio_path}")
-    print(f"Audio file ready at: {audio_path} and chunking into {len(chunk_audio(audio_path))}-minute segments...")
-    
-
-    return chunk_audio(audio_path)
-    
-data = download_youtube_audio("https://www.youtube.com/watch?v=NF2aRqIlYNE")
-
-data_final = (convert_to_wav(data))
-
-print(chunk_audio(data_final, 10))
+    chunks = chunk_audio(audio_path)
+    print(f"Chunked audio into {len(chunks)} segment(s).")
+    return chunks
